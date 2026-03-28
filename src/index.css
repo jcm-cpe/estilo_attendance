@@ -125,6 +125,16 @@ p.subtitle {
   background: rgba(255, 255, 255, 0.15);
 }
 
+.id-form__actions {
+  display: flex;
+  flex-direction: row;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.id-form__actions button {
+  flex: 1;
+}
 /* State Containers */
 .state-container {
   display: flex;

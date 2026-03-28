@@ -1,31 +1,70 @@
 import { AttendanceRecord } from '../types';
 
 // Placeholder for the actual Google Apps Script Web App URL
-const GOOGLE_SHEETS_WEB_APP_URL = 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE';
+const GOOGLE_SHEETS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwmpfCNm_uz6aaIEV_Ui8kereGoyRYML4-ZGbNY65gcEhSDYekS_7-tRShItp-QNQJBWA/exec';
+
+export interface VerificationResult {
+  isClockedIn: boolean; // Server tells us if the user is already clocked in today
+}
 
 /**
- * Logs the scanned attendance data by sending a POST request to a Google Sheet via Apps Script Web App URL.
- * Currently uses a mock implementation based on user request.
- * 
- * @param record - The extracted QR code value and its scan timestamp.
- * @returns A promise that resolves if the update was successful.
+ * Checks if the scanned ID exists on the server AND its current clock-in state for today.
  */
-export async function logAttendance(record: AttendanceRecord): Promise<void> {
-  console.log('--- [MOCK API] Sending data to Google Sheets ---');
-  console.log('Endpoint URL:', GOOGLE_SHEETS_WEB_APP_URL);
-  console.log('Payload:', record);
+export async function verifyUserStatus(record: AttendanceRecord): Promise<VerificationResult> {
+  try {
+    const response = await fetch(GOOGLE_SHEETS_WEB_APP_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'text/plain;charset=utf-8',
+      },
+      body: JSON.stringify({ ...record, action: 'VERIFY' })
+    });
 
-  // Simulate network delay behavior
-  return new Promise((resolve, reject) => {
-    setTimeout(() => {
-      // Simulate an 80% success rate for demonstration purposes
-      if (Math.random() > 0.2) {
-        console.log('--- [MOCK API] Successfully logged attendance ---');
-        resolve();
-      } else {
-        console.error('--- [MOCK API] Simulated Network Error ---');
-        reject(new Error('Simulated network error connecting to Google Sheets.'));
+    const data = await response.json();
+
+    if (!data.success) {
+      if (data.reason === 'NOT_FOUND') {
+        throw new Error('NOT_FOUND');
       }
-    }, 1500);
-  });
+      throw new Error(data.error || 'Server rejected the entry.');
+    }
+
+    return {
+      isClockedIn: data.isClockedIn || false
+    };
+  } catch (err: any) {
+    if (err.message === 'NOT_FOUND') {
+      throw err;
+    }
+    throw new Error('Network error connecting to the Server.');
+  }
+}
+
+/**
+ * Logs the actual 'Time IN' or 'Time OUT' into the Google Sheet.
+ */
+export async function submitAttendanceTime(record: AttendanceRecord, type: 'IN' | 'OUT'): Promise<void> {
+  try {
+    const response = await fetch(GOOGLE_SHEETS_WEB_APP_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'text/plain;charset=utf-8',
+      },
+      body: JSON.stringify({ ...record, action: 'RECORD', actionType: type })
+    });
+
+    const data = await response.json();
+
+    if (!data.success) {
+      if (data.reason === 'NOT_FOUND') {
+        throw new Error('NOT_FOUND');
+      }
+      throw new Error(data.error || 'Server rejected the write.');
+    }
+  } catch (err: any) {
+    if (err.message === 'NOT_FOUND') {
+      throw err;
+    }
+    throw new Error('Network error trying to write to Server.');
+  }
 }

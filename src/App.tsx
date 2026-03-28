@@ -1,7 +1,7 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { Camera, CheckCircle, XCircle, Loader2, RefreshCw } from 'lucide-react';
 import { QRScanner } from './components/QRScanner';
-import { logAttendance } from './api/googleSheets';
+import { verifyUserStatus, submitAttendanceTime } from './api/googleSheets';
 import { ViewState, AttendanceRecord } from './types';
 import './index.css';
 
@@ -10,36 +10,95 @@ function App() {
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [lastScan, setLastScan] = useState<AttendanceRecord | null>(null);
 
+  // New States for Manual Mode
+  const [isManualMode, setIsManualMode] = useState<boolean>(false);
+  const [manualId, setManualId] = useState<string>('');
+
+  // ⏰ New States for Clock In/Out Flow
+  const [isClockedIn, setIsClockedIn] = useState<boolean>(false);
+  const [scannedId, setScannedId] = useState<string>('');
+
+  // Synchronous flag to prevent concurrent rapid-fire scans
+  const isProcessingRef = useRef<boolean>(false);
+
   const handleScanSuccess = useCallback(async (decodedText: string) => {
-    // Prevent multiple submissions
-    if (viewState === 'submitting') return;
+    if (isProcessingRef.current) return;
+    isProcessingRef.current = true; // Lock immediately
     
     setViewState('submitting');
+    setScannedId(decodedText); // 👈 Missing link!
+
     const record: AttendanceRecord = {
       qrValue: decodedText,
       scannedAt: new Date().toISOString(),
     };
-    
     setLastScan(record);
 
     try {
-      await logAttendance(record);
+      const result = await verifyUserStatus(record);
+      setIsClockedIn(result.isClockedIn);
+      setViewState('action-selection');
+    } catch (err: any) {
+      if (err.message === 'NOT_FOUND') {
+        setViewState('not-found');
+      } else {
+        setErrorMessage(err.message || 'Verification Error');
+        setViewState('error');
+      }
+    }
+  }, []); // Empty dependency array ensures reference stability
+
+  const handleManualAction = async (type: 'IN' | 'OUT') => {
+    if (!scannedId) return;
+    setViewState('submitting');
+    
+    const record: AttendanceRecord = {
+      qrValue: scannedId,
+      scannedAt: new Date().toISOString(),
+      actionType: type
+    };
+    setLastScan(record);
+
+    try {
+      await submitAttendanceTime(record, type);
       setViewState('success');
     } catch (err: any) {
-      setErrorMessage(err.message || 'Failed to sync with server.');
-      setViewState('error');
+      if (err.message === 'NOT_FOUND') {
+        setViewState('not-found');
+      } else {
+        setErrorMessage(err.message || 'Failed to submit time.');
+        setViewState('error');
+      }
     }
-  }, [viewState]);
+  };
 
   const handleScanFailure = useCallback((_errorStr: string) => {
-    // Only log continuous camera/parsing errors if necessary in real apps
-    // For now, we optionally ignore them to prevent console spam
+    // Hidden logging
   }, []);
 
   const resetView = () => {
+    isProcessingRef.current = false; // Unlock for the next scan
     setViewState('idle');
     setErrorMessage('');
     setLastScan(null);
+    setIsManualMode(false);
+    setManualId('');
+  };
+
+  const retryScan = () => {
+    isProcessingRef.current = false; // Unlock for the next scan
+    setViewState('scanning');
+    setErrorMessage('');
+    setLastScan(null);
+    setIsManualMode(false);
+    setManualId('');
+  };
+
+  const handleManualSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!manualId.trim()) return;
+
+    handleScanSuccess(manualId.trim());
   };
 
   return (
@@ -50,12 +109,81 @@ function App() {
       </header>
 
       {/* --- IDLE STATE --- */}
-      {viewState === 'idle' && (
+      {viewState === 'idle' && !isManualMode && (
         <div className="state-container">
           <p>Ready to record attendance. Please aim the camera at the QR code.</p>
-          <button className="primary-btn" onClick={() => setViewState('scanning')}>
+          <button className="primary-btn w-full" onClick={() => setViewState('scanning')}>
             <Camera size={20} />
             Start Scanner
+          </button>
+
+          <div className="w-full h-px bg-white/10 my-2"></div>
+
+          <button className="secondary-btn w-full" onClick={() => setIsManualMode(true)}>
+            Manual Entry
+          </button>
+        </div>
+      )}
+
+      {/* --- MANUAL ENTRY FORM --- */}
+      {viewState === 'idle' && isManualMode && (
+        <div className="state-container">
+          <form className="flex flex-col gap-4 w-full" onSubmit={handleManualSubmit}>
+            <div className="flex flex-col gap-2 text-left">
+              <label htmlFor="manual-id" className="text-sm font-medium text-slate-400">
+                Employee ID
+              </label>
+              <input
+                id="manual-id"
+                type="text"
+                className="p-3 bg-black/30 border border-white/10 rounded-xl text-white autofill:bg-transparent focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all font-mono"
+                placeholder="Ex. EMP-001"
+                value={manualId}
+                onChange={(e) => setManualId(e.target.value)}
+                autoFocus
+              />
+            </div>
+
+            <div className="id-form__actions">
+              <button type="submit" className="primary-btn">
+                Submit ID
+              </button>
+              <button type="button" className="secondary-btn" onClick={() => setIsManualMode(false)}>
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* --- ACTION SELECTION STATE --- */}
+      {viewState === 'action-selection' && (
+        <div className="state-container">
+          <h2>Shift Action Selection</h2>
+          <p style={{ color: "var(--text-secondary)" }}>User verified! What do you want to do?</p>
+          
+          <div className="id-form__actions" style={{ flexDirection: 'column', marginTop: '1.5rem', width: '100%', gap: '1rem' }}>
+            <button 
+              className="primary-btn" 
+              style={{ width: '100%', opacity: isClockedIn ? 0.3 : 1, cursor: isClockedIn ? 'not-allowed' : 'pointer' }} 
+              disabled={isClockedIn} 
+              onClick={() => handleManualAction('IN')}
+            >
+              Time IN
+            </button>
+            
+            <button 
+              className="primary-btn" 
+              style={{ width: '100%', opacity: !isClockedIn ? 0.3 : 1, cursor: !isClockedIn ? 'not-allowed' : 'pointer' }} 
+              disabled={!isClockedIn} 
+              onClick={() => handleManualAction('OUT')}
+            >
+              Time OUT
+            </button>
+          </div>
+
+          <button className="secondary-btn" style={{ width: '100%', marginTop: '0.5rem' }} onClick={resetView}>
+            Cancel and Reset
           </button>
         </div>
       )}
@@ -115,10 +243,32 @@ function App() {
           <h2>Scan Failed</h2>
           <p className="error-text">{errorMessage}</p>
 
-          <button className="primary-btn" style={{ width: '100%' }} onClick={resetView}>
+          <button className="primary-btn" style={{ width: '100%' }} onClick={retryScan}>
             <RefreshCw size={20} />
             Try Again
           </button>
+        </div>
+      )}
+
+      {/* --- NOT FOUND STATE (Requested) --- */}
+      {viewState === 'not-found' && (
+        <div className="state-container">
+          <div className="icon-wrapper error">
+            <XCircle size={32} />
+          </div>
+          <h2>Record Not Found</h2>
+          <p style={{ color: "var(--text-secondary)", lineHeight: "1.5" }}>
+            The scanned ID does not match any current employee record. Please verify the QR code or contact Human Resources for assistance.
+          </p>
+
+          <div style={{ display: 'flex', gap: '0.75rem', width: '100%', marginTop: '0.5rem' }}>
+            <button className="secondary-btn" style={{ flex: 1 }} onClick={retryScan}>
+              Retry Scan
+            </button>
+            <button className="primary-btn" style={{ flex: 1 }} onClick={() => alert('Contacting support...')}>
+              Contact Support
+            </button>
+          </div>
         </div>
       )}
     </div>

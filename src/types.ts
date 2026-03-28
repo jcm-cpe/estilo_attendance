@@ -3,6 +3,8 @@ export interface AttendanceRecord {
   qrValue: string;
   /** ISO timestamp when the QR code was scanned */
   scannedAt: string;
+  /** Whether this is a Time IN or Time OUT event */
+  actionType?: 'IN' | 'OUT';
 }
 
 export interface QRScannerProps {
@@ -12,4 +14,4 @@ export interface QRScannerProps {
   onScanFailure?: (errorMessage: string) => void;
 }
 
-export type ViewState = 'idle' | 'scanning' | 'submitting' | 'success' | 'error';
+export type ViewState = 'idle' | 'scanning' | 'submitting' | 'success' | 'error' | 'not-found' | 'action-selection';
