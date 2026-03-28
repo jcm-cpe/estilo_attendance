@@ -65,6 +65,7 @@ h1 {
   margin-bottom: 0.5rem;
   background: linear-gradient(to right, #818cf8, #c084fc);
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
@@ -130,6 +131,8 @@ p.subtitle {
   flex-direction: row;
   gap: 0.75rem;
   width: 100%;
+  margin-top: 2rem;
+    /* Added space between input and buttons */
 }
 
 .id-form__actions button {

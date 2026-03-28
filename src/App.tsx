@@ -129,8 +129,8 @@ function App() {
       {viewState === 'idle' && isManualMode && (
         <div className="state-container">
           <form className="flex flex-col gap-4 w-full" onSubmit={handleManualSubmit}>
-            <div className="flex flex-col gap-2 text-left">
-              <label htmlFor="manual-id" className="text-sm font-medium text-slate-400">
+            <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '1rem', width: '100%' }}>
+              <label htmlFor="manual-id" style={{ color: "var(--text-secondary)", fontSize: "0.95rem", whiteSpace: "nowrap" }}>
                 Employee ID
               </label>
               <input
@@ -262,8 +262,8 @@ function App() {
           </p>
 
           <div style={{ display: 'flex', gap: '0.75rem', width: '100%', marginTop: '0.5rem' }}>
-            <button className="secondary-btn" style={{ flex: 1 }} onClick={retryScan}>
-              Retry Scan
+            <button className="secondary-btn" style={{ flex: 1 }} onClick={resetView}>
+              Go Back
             </button>
             <button className="primary-btn" style={{ flex: 1 }} onClick={() => alert('Contacting support...')}>
               Contact Support
