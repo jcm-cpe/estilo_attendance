@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { Camera, CheckCircle, XCircle, Loader2, RefreshCw } from 'lucide-react';
 import { QRScanner } from './components/QRScanner';
 import { verifyUserStatus, submitAttendanceTime } from './api/googleSheets';
@@ -14,7 +14,7 @@ const getDeviceLocation = async (): Promise<string> => {
     }
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        resolve(`Lat: ${position.coords.latitude.toFixed(4)}, Long: ${position.coords.longitude.toFixed(4)}`);
+        resolve(`${position.coords.latitude.toFixed(4)}, ${position.coords.longitude.toFixed(4)}`);
       },
       async (error) => {
         console.warn('GPS location failed, trying IP fallback:', error);
@@ -51,9 +51,26 @@ function App() {
   const [isClockedIn, setIsClockedIn] = useState<boolean>(false);
   const [scannedId, setScannedId] = useState<string>('');
 
+  const [gpsWarningVisible, setGpsWarningVisible] = useState<boolean>(false);
+
   // Synchronous flag to prevent concurrent rapid-fire scans
   const isProcessingRef = useRef<boolean>(false);
   const selfieRef = useRef<SelfieCaptureRef>(null);
+
+  useEffect(() => {
+    if ("permissions" in navigator) {
+      navigator.permissions.query({ name: 'geolocation' as PermissionName }).then((result) => {
+        if (result.state === 'denied') {
+          setGpsWarningVisible(true);
+        } else if (result.state === 'prompt') {
+          // Trigger standard browser prompt
+          navigator.geolocation.getCurrentPosition(() => { }, () => { });
+        }
+      });
+    } else if (!("geolocation" in navigator)) {
+      setGpsWarningVisible(true); // Unsupported
+    }
+  }, []);
 
   const handleScanSuccess = useCallback(async (decodedText: string) => {
     if (isProcessingRef.current) return;
@@ -146,6 +163,15 @@ function App() {
 
   return (
     <div className="app-container">
+      {gpsWarningVisible && (viewState === 'idle' || viewState === 'scanning') && (
+        <div style={{ backgroundColor: 'rgba(255, 149, 0, 0.2)', padding: '1rem', borderRadius: '12px', marginBottom: '1rem', border: '1px solid #ff9500', color: '#ff9500', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <XCircle size={20} />
+          <div>
+            <p style={{ fontWeight: '600', margin: 0, color: '#ff9500' }}>Precise Location Disabled</p>
+          </div>
+        </div>
+      )}
+
       <header>
         <h1>Secure Pass</h1>
         <p className="subtitle">Enterprise Attendance System</p>

@@ -1,7 +1,7 @@
 import { AttendanceRecord } from '../types';
 
 // Placeholder for the actual Google Apps Script Web App URL
-const GOOGLE_SHEETS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxRLQYWJ308fK1Fs18cY14IfgD61K2J1evERZNsXWdKEAVRCr2TWVuP_y1gmXu-x5LOwA/exec';
+const GOOGLE_SHEETS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbybEtVDv2INK5zETD8cHmPydIwsg59Fv4GPJ0uIJMdp5k8pnTaVx38nY1v_CRJg8FYw/exec';
 
 export interface VerificationResult {
   isClockedIn: boolean; // Server tells us if the user is already clocked in today
@@ -44,14 +44,20 @@ export async function verifyUserStatus(record: AttendanceRecord): Promise<Verifi
  * Logs the actual 'Time IN' or 'Time OUT' into the Google Sheet.
  */
 export async function submitAttendanceTime(record: AttendanceRecord, type: 'IN' | 'OUT'): Promise<void> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000); // 15-second timeout
+
   try {
     const response = await fetch(GOOGLE_SHEETS_WEB_APP_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'text/plain;charset=utf-8',
       },
-      body: JSON.stringify({ ...record, action: 'RECORD', actionType: type, photoData: record.photoData, locationData: record.locationData })
+      body: JSON.stringify({ ...record, action: 'RECORD', actionType: type, photoData: record.photoData, locationData: record.locationData }),
+      signal: controller.signal
     });
+
+    clearTimeout(timeoutId);
 
     const data = await response.json();
 
