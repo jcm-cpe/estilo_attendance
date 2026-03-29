@@ -3,7 +3,40 @@ import { Camera, CheckCircle, XCircle, Loader2, RefreshCw } from 'lucide-react';
 import { QRScanner } from './components/QRScanner';
 import { verifyUserStatus, submitAttendanceTime } from './api/googleSheets';
 import { ViewState, AttendanceRecord } from './types';
+import { SelfieCapture, SelfieCaptureRef } from './components/SelfieCapture';
 import './index.css';
+
+const getDeviceLocation = async (): Promise<string> => {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) {
+      resolve(getIpFallbackLocation());
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        resolve(`Lat: ${position.coords.latitude.toFixed(4)}, Long: ${position.coords.longitude.toFixed(4)}`);
+      },
+      async (error) => {
+        console.warn('GPS location failed, trying IP fallback:', error);
+        resolve(await getIpFallbackLocation());
+      },
+      { timeout: 5000 }
+    );
+  });
+};
+
+const getIpFallbackLocation = async (): Promise<string> => {
+  try {
+    const response = await fetch('https://ipapi.co/json/');
+    const data = await response.json();
+    if (data.city && data.country_name) {
+      return `${data.city}, ${data.country_name} (IP-bound)`;
+    }
+    return "Unknown (IP parse failed)";
+  } catch (err) {
+    return "Unknown (IP fetch failed)";
+  }
+};
 
 function App() {
   const [viewState, setViewState] = useState<ViewState>('idle');
@@ -20,6 +53,7 @@ function App() {
 
   // Synchronous flag to prevent concurrent rapid-fire scans
   const isProcessingRef = useRef<boolean>(false);
+  const selfieRef = useRef<SelfieCaptureRef>(null);
 
   const handleScanSuccess = useCallback(async (decodedText: string) => {
     if (isProcessingRef.current) return;
@@ -52,10 +86,19 @@ function App() {
     if (!scannedId) return;
     setViewState('submitting');
     
+    let photo: string | null = null;
+    if (selfieRef.current) {
+      photo = selfieRef.current.capture();
+    }
+    
+    const locationStr = await getDeviceLocation();
+    
     const record: AttendanceRecord = {
       qrValue: scannedId,
       scannedAt: new Date().toISOString(),
-      actionType: type
+      actionType: type,
+      photoData: photo || undefined,
+      locationData: locationStr || undefined
     };
     setLastScan(record);
 
@@ -160,7 +203,9 @@ function App() {
       {viewState === 'action-selection' && (
         <div className="state-container">
           <h2>Shift Action Selection</h2>
-          <p style={{ color: "var(--text-secondary)" }}>User verified! What do you want to do?</p>
+          <p style={{ color: "var(--text-secondary)" }}>User verified! Please look at the camera.</p>
+          
+          <SelfieCapture ref={selfieRef} />
           
           <div className="id-form__actions" style={{ flexDirection: 'column', marginTop: '1.5rem', width: '100%', gap: '1rem' }}>
             <button 

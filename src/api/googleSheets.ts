@@ -1,7 +1,7 @@
 import { AttendanceRecord } from '../types';
 
 // Placeholder for the actual Google Apps Script Web App URL
-const GOOGLE_SHEETS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbwmpfCNm_uz6aaIEV_Ui8kereGoyRYML4-ZGbNY65gcEhSDYekS_7-tRShItp-QNQJBWA/exec';
+const GOOGLE_SHEETS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxRLQYWJ308fK1Fs18cY14IfgD61K2J1evERZNsXWdKEAVRCr2TWVuP_y1gmXu-x5LOwA/exec';
 
 export interface VerificationResult {
   isClockedIn: boolean; // Server tells us if the user is already clocked in today
@@ -50,7 +50,7 @@ export async function submitAttendanceTime(record: AttendanceRecord, type: 'IN' 
       headers: {
         'Content-Type': 'text/plain;charset=utf-8',
       },
-      body: JSON.stringify({ ...record, action: 'RECORD', actionType: type })
+      body: JSON.stringify({ ...record, action: 'RECORD', actionType: type, photoData: record.photoData, locationData: record.locationData })
     });
 
     const data = await response.json();
@@ -65,6 +65,7 @@ export async function submitAttendanceTime(record: AttendanceRecord, type: 'IN' 
     if (err.message === 'NOT_FOUND') {
       throw err;
     }
-    throw new Error('Network error trying to write to Server.');
+    // Bubble up the actual error message so we can see what failed!
+    throw err;
   }
 }

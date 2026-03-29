@@ -5,6 +5,10 @@ export interface AttendanceRecord {
   scannedAt: string;
   /** Whether this is a Time IN or Time OUT event */
   actionType?: 'IN' | 'OUT';
+  /** Base64 encoded selfie image from the event */
+  photoData?: string;
+  /** Device location string (GPS Lat/Long or City via IP) */
+  locationData?: string;
 }
 
 export interface QRScannerProps {
