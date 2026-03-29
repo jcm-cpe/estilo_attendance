@@ -1,7 +1,7 @@
 import { AttendanceRecord } from '../types';
 
 // Placeholder for the actual Google Apps Script Web App URL
-const GOOGLE_SHEETS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxbErVgQXgbO59h4W36fi9-BkeXsCzHjX0tcE12ESLhC4XD-eu1xmxMg_oJ71-yHlGH_Q/exec';
+const GOOGLE_SHEETS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzqmWjaGg0-_KJx64gY0o3z2W5pOa70JxFtfZovNC858F_fu8w7Cb3rvAeA0eysWK2u/exec';
 
 export interface VerificationResult {
   isClockedIn: boolean; // Server tells us if the user is already clocked in today
