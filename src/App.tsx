@@ -14,7 +14,7 @@ const getDeviceLocation = async (): Promise<string> => {
     }
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        resolve(`Lat: ${position.coords.latitude.toFixed(4)}, Long: ${position.coords.longitude.toFixed(4)}`);
+        resolve(`${position.coords.latitude.toFixed(4)}, ${position.coords.longitude.toFixed(4)}`);
       },
       async (error) => {
         console.warn('GPS location failed, trying IP fallback:', error);
