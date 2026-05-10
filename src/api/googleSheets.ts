@@ -1,6 +1,6 @@
 import { AttendanceRecord } from '../types';
 
-const GOOGLE_SHEETS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbzqmWjaGg0-_KJx64gY0o3z2W5pOa70JxFtfZovNC858F_fu8w7Cb3rvAeA0eysWK2u/exec';
+const GOOGLE_SHEETS_WEB_APP_URL = 'https://script.google.com/a/macros/estilodesignplus.com/s/AKfycbxGL00fwOfNUb_tkhccLA7LH8rF1ngdriW6SxCPk4Vny7PBGeEtlwHY41wW93brVeE1/exec';
 
 export interface VerificationResult {
   isClockedIn: boolean;
